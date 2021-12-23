@@ -1,33 +1,66 @@
 package com.bridgelabz;
 
-import com.opencsv.bean.CsvToBean;
-import com.opencsv.bean.CsvToBeanBuilder;
+import java.io.FileNotFoundException;
+import java.io.FileReader;
 import java.io.IOException;
-import java.io.Reader;
-import java.nio.file.Files;
-import java.nio.file.Paths;
-import java.util.Iterator;
+import java.util.ArrayList;
+
+import com.opencsv.CSVParser;
+import com.opencsv.CSVParserBuilder;
+import com.opencsv.CSVReader;
+import com.opencsv.CSVReaderBuilder;
+import com.opencsv.exceptions.CsvValidationException;
 
 public class StateCensusAnalyser {
 
-	public int loadIndiaCensusData(String csvFilePath) throws CensusAnalyserException {
+	ArrayList<CSVStateCensus> stateCensus = new ArrayList<CSVStateCensus>();
+
+
+	public int loadIndiaCensusData(String indiaCensusCsvFilePath) throws CensusAnalyserException {
+
 		try {
-			Reader reader = Files.newBufferedReader(Paths.get(csvFilePath));
-			CsvToBeanBuilder<CSVStateCensus> csvToBeanBuilder = new CsvToBeanBuilder<CSVStateCensus>(reader);
-			csvToBeanBuilder.withType(CSVStateCensus.class);
-			csvToBeanBuilder.withIgnoreLeadingWhiteSpace(true);
-			CsvToBean<CSVStateCensus> csvToBean = csvToBeanBuilder.build();
-			Iterator<CSVStateCensus> censusCSVIterator = csvToBean.iterator();
-			;
-			int numOfEntries = 0;
-			while (censusCSVIterator.hasNext()) {
-				numOfEntries++;
-				CSVStateCensus censusData = censusCSVIterator.next();
+
+			CSVReader csvReader = new CSVReader(new FileReader(indiaCensusCsvFilePath));
+			String[] entry = csvReader.readNext();
+			if(entry.length!=4) {
+				throw new CensusAnalyserException(" Header not matched ",
+						CensusAnalyserException.ExceptionType.INVALID_DELIMITER);
 			}
-			return numOfEntries;
+			if (headerCheck(entry) == false) {
+				throw new CensusAnalyserException(" Header not matched ",
+						CensusAnalyserException.ExceptionType.INVALID_HEADER);
+			}
+			while ((entry = csvReader.readNext()) != null) {
+				stateCensus.add(new CSVStateCensus(entry[0], Long.parseLong(entry[1]), Long.parseLong(entry[2]),
+						Double.parseDouble(entry[3])));
+			}
+			for (CSVStateCensus data : stateCensus) {
+				System.out.println(data);
+			}
+			return stateCensus.size();
+
+		} catch (FileNotFoundException e) {
+			throw new CensusAnalyserException(e.getMessage(),
+					CensusAnalyserException.ExceptionType.CENSUS_FILE_NOT_FOUND);
+		} catch (CsvValidationException e) {
+			throw new CensusAnalyserException(e.getMessage(),
+					CensusAnalyserException.ExceptionType.CENSUS_FILE_NOT_FOUND);
+		} catch (NumberFormatException e) {
+			throw new CensusAnalyserException(e.getMessage(),
+					CensusAnalyserException.ExceptionType.INVALID_TYPE);
 		} catch (IOException e) {
 			throw new CensusAnalyserException(e.getMessage(),
 					CensusAnalyserException.ExceptionType.CENSUS_FILE_PROBLEM);
 		}
+
 	}
+
+	private boolean headerCheck(String[] entry) {
+		if (entry[0].equals("State") && entry[1].equals("Population")&& entry[2].equals("AreaInSqKm") 
+				&& entry[3].equals("DensityPerSqKm")) {
+			return true;
+		}
+		return false;
+	}
+
 }
